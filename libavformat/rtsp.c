@@ -1913,6 +1913,9 @@ redirect:
                 && (rt->rtsp_flags & RTSP_FLAG_PREFER_TCP))
             lower_transport = RTSP_LOWER_TRANSPORT_TCP;
 
+        if (ff_is_multicast_address((struct sockaddr*)&rt->rtsp_streams[rt->nb_rtsp_streams-1]->sdp_ip))
+            lower_transport = RTSP_LOWER_TRANSPORT_UDP_MULTICAST;
+
         err = ff_rtsp_make_setup_request(s, host, port, lower_transport,
                                  rt->server_type == RTSP_SERVER_REAL ?
                                      real_challenge : NULL);
