@@ -831,6 +831,7 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
     } else {
         uint16_t seq = AV_RB16(buf + 2);
         int16_t diff = seq - s->seq;
+        av_log(s->ic, AV_LOG_TRACE, "RTP: cseq: %d - lseq: %d - diff: %d\n", seq, s->seq, diff);
         if (diff < 0) {
             /* Packet older than the previously emitted one, drop */
             av_log(s->ic, AV_LOG_WARNING,
