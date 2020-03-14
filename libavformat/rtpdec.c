@@ -791,8 +791,10 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
         /* If parsing of the previous packet actually returned 0 or an error,
          * there's nothing more to be parsed from that packet, but we may have
          * indicated that we can return the next enqueued packet. */
-        if (s->prev_ret <= 0)
+        if (s->prev_ret <= 0) {
+	    av_log(s->ic, AV_LOG_TRACE, "RTP: exit 1\n");
             return rtp_parse_queued_packet(s, pkt);
+	}
         /* return the next packets, if any */
         if (s->handler && s->handler->parse_packet) {
             /* timestamp should be overwritten by parse_packet, if not,
@@ -802,16 +804,24 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
                                                  s->st, pkt, &timestamp, NULL, 0, 0,
                                                  flags);
             finalize_packet(s, pkt, timestamp);
+	    av_log(s->ic, AV_LOG_TRACE, "RTP: exit 2\n");
             return rv;
         }
     }
 
     if (len < 12)
+    {
+	av_log(s->ic, AV_LOG_TRACE, "RTP: exit 3\n");
         return -1;
+    }
 
     if ((buf[0] & 0xc0) != (RTP_VERSION << 6))
+    {
+        av_log(s->ic, AV_LOG_TRACE, "RTP: exit 4\n");
         return -1;
+    }
     if (RTP_PT_IS_RTCP(buf[1])) {
+        av_log(s->ic, AV_LOG_TRACE, "RTP: exit 5\n");
         return rtcp_parse_packet(s, buf, len);
     }
 
@@ -827,10 +837,13 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
 
     if ((s->seq == 0 && !s->queue) || s->queue_size <= 1) {
         /* First packet, or no reordering */
+        av_log(s->ic, AV_LOG_TRACE, "RTP: exit 6\n");
         return rtp_parse_packet_internal(s, pkt, buf, len);
     } else {
         uint16_t seq = AV_RB16(buf + 2);
         int16_t diff = seq - s->seq;
+	av_log(s->ic, AV_LOG_TRACE, "RTP: cseq: %d - lseq: %d - diff: %d\n", seq, s->seq, diff);
+
         if (diff < 0) {
             /* Packet older than the previously emitted one, drop */
             av_log(s->ic, AV_LOG_WARNING,
@@ -839,12 +852,15 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
         } else if (diff <= 1) {
             /* Correct packet */
             rv = rtp_parse_packet_internal(s, pkt, buf, len);
+            av_log(s->ic, AV_LOG_TRACE, "RTP: Correct Packet\n");
             return rv;
         } else {
             /* Still missing some packet, enqueue this one. */
             rv = enqueue_packet(s, buf, len);
-            if (rv < 0)
+            if (rv < 0) {
+                av_log(s->ic, AV_LOG_TRACE, "RTP: Enqueue failed?\n");
                 return rv;
+	    }
             *bufptr = NULL;
             /* Return the first enqueued packet if the queue is full,
              * even if we're missing something */
@@ -852,6 +868,7 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
                 av_log(s->ic, AV_LOG_WARNING, "jitter buffer full\n");
                 return rtp_parse_queued_packet(s, pkt);
             }
+            av_log(s->ic, AV_LOG_TRACE, "RTP: Enqueue success?\n");
             return -1;
         }
     }

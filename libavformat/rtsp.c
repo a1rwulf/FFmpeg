@@ -56,7 +56,7 @@
 #define READ_PACKET_TIMEOUT_S 10
 #define MAX_TIMEOUTS READ_PACKET_TIMEOUT_S * 1000 / POLL_TIMEOUT_MS
 #define SDP_MAX_SIZE 16384
-#define RECVBUF_SIZE 10 * RTP_MAX_PACKET_LENGTH
+#define RECVBUF_SIZE 30 * RTP_MAX_PACKET_LENGTH
 #define DEFAULT_REORDERING_DELAY 100000
 
 #define OFFSET(x) offsetof(RTSPState, x)
@@ -2204,6 +2204,7 @@ redo:
             ff_rtp_send_rtcp_feedback(rtsp_st->transport_priv, rtsp_st->rtp_handle, pb);
         }
         if (ret < 0) {
+            av_log(s, AV_LOG_WARNING, "Either bad packet, or a RTCP packet\n");
             /* Either bad packet, or a RTCP packet. Check if the
              * first_rtcp_ntp_time field was initialized. */
             RTPDemuxContext *rtpctx = rtsp_st->transport_priv;
@@ -2216,6 +2217,9 @@ redo:
                 AVStream *st = NULL;
                 if (rtsp_st->stream_index >= 0)
                     st = s->streams[rtsp_st->stream_index];
+
+		av_hex_dump_log(s, AV_LOG_DEBUG, pkt->data, pkt->size);
+
                 for (i = 0; i < rt->nb_rtsp_streams; i++) {
                     RTPDemuxContext *rtpctx2 = rt->rtsp_streams[i]->transport_priv;
                     AVStream *st2 = NULL;
@@ -2267,7 +2271,10 @@ redo:
     }
 end:
     if (ret < 0)
+    {
+        av_log(s, AV_LOG_WARNING, "Goto redo\n");
         goto redo;
+    }
     if (ret == 1)
         /* more packets may follow, so we save the RTP context */
         rt->cur_transport_priv = rtsp_st->transport_priv;

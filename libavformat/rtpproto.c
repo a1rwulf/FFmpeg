@@ -397,20 +397,36 @@ static int rtp_read(URLContext *h, uint8_t *buf, int size)
                 if (len < 0) {
                     if (ff_neterrno() == AVERROR(EAGAIN) ||
                         ff_neterrno() == AVERROR(EINTR))
+		    {
+			    av_log(h, AV_LOG_ERROR, "udp_read EAGAIN or EINTR\n");
                         continue;
+		    }
+			    av_log(h, AV_LOG_ERROR, "udp_read EIO\n");
                     return AVERROR(EIO);
                 }
                 if (ff_ip_check_source_lists(addrs[i], &s->filters))
+		{
+			av_log(h, AV_LOG_ERROR, "udp_read source ip check failed\n");
                     continue;
+		}
+		av_log(h, AV_LOG_DEBUG, "udp_read success len: %d\n", len);
+		av_hex_dump_log(s, AV_LOG_DEBUG, buf, len);
                 return len;
             }
         } else if (n < 0) {
             if (ff_neterrno() == AVERROR(EINTR))
+	    {
+		av_log(h, AV_LOG_ERROR, "poll EINTR\n");
                 continue;
+	    }
+	    av_log(h, AV_LOG_ERROR, "poll not ready: %d\n", n);
             return AVERROR(EIO);
         }
         if (h->flags & AVIO_FLAG_NONBLOCK)
+	{
+	    av_log(h, AV_LOG_ERROR, "not sure\n");
             return AVERROR(EAGAIN);
+	}
     }
 }
 

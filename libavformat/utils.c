@@ -1584,6 +1584,8 @@ static int read_frame_internal(AVFormatContext *s, AVPacket *pkt)
             if (ret == AVERROR(EAGAIN))
                 return ret;
             /* flush the parsers */
+
+            av_log(s, AV_LOG_DEBUG, "flush_parsers\n");
             for (i = 0; i < s->nb_streams; i++) {
                 st = s->streams[i];
                 if (st->parser && st->need_parsing)
@@ -1670,18 +1672,24 @@ FF_ENABLE_DEPRECATION_WARNINGS
                 av_add_index_entry(st, pkt->pos, pkt->dts,
                                    0, 0, AVINDEX_KEYFRAME);
             }
+            av_log(s, AV_LOG_DEBUG, "got packet 1\n");
             got_packet = 1;
         } else if (st->discard < AVDISCARD_ALL) {
             if ((ret = parse_packet(s, &cur_pkt, cur_pkt.stream_index)) < 0)
+	    {
+                av_log(s, AV_LOG_DEBUG, "parse_packet error\n");
                 return ret;
+	    }
             st->codecpar->sample_rate = st->internal->avctx->sample_rate;
             st->codecpar->bit_rate = st->internal->avctx->bit_rate;
             st->codecpar->channels = st->internal->avctx->channels;
             st->codecpar->channel_layout = st->internal->avctx->channel_layout;
             st->codecpar->codec_id = st->internal->avctx->codec_id;
+                av_log(s, AV_LOG_DEBUG, "discardall\n");
         } else {
             /* free packet */
             av_packet_unref(&cur_pkt);
+                av_log(s, AV_LOG_DEBUG, "free packet\n");
         }
         if (pkt->flags & AV_PKT_FLAG_KEY)
             st->skip_to_keyframe = 0;
@@ -1690,8 +1698,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
             if (got_packet) {
                 *pkt = cur_pkt;
             }
+
+            av_log(s, AV_LOG_DEBUG, "reset got_packet\n");
             got_packet = 0;
         }
+        av_log(s, AV_LOG_DEBUG, "got_packet: %d - st->internal->parse_queue: %d\n", got_packet, s->internal->parse_queue ? 1 : 0);
     }
 
     if (!got_packet && s->internal->parse_queue)
@@ -1753,7 +1764,6 @@ FF_ENABLE_DEPRECATION_WARNINGS
     update_stream_avctx(s);
 #endif
 
-    if (s->debug & FF_FDEBUG_TS)
         av_log(s, AV_LOG_DEBUG,
                "read_frame_internal stream=%d, pts=%s, dts=%s, "
                "size=%d, duration=%"PRId64", flags=%d\n",
@@ -3644,7 +3654,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
         ret = avcodec_parameters_to_context(avctx, st->codecpar);
         if (ret < 0)
+	{
+            av_log(ic, AV_LOG_DEBUG, "avcodec_parameters_to_context error\n");
             goto find_stream_info_err;
+	}
         if (st->request_probe <= 0)
             st->internal->avctx_inited = 1;
 
@@ -3719,7 +3732,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
             if (!(st->r_frame_rate.num && st->avg_frame_rate.num) &&
                 st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 if (count < fps_analyze_framecount)
+		{
+	            av_log(ic, AV_LOG_DEBUG, "count: %d - fcount: %d\n", count, fps_analyze_framecount);
                     break;
+		}
             }
             // Look at the first 3 frames if there is evidence of frame delay
             // but the decoder delay is not set.
@@ -3739,6 +3755,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
         }
         analyzed_all_streams = 0;
         if (!missing_streams || !*missing_streams)
+	{
+        av_log(ic, AV_LOG_DEBUG, "Current stream: %d\n", i);
         if (i == ic->nb_streams) {
             analyzed_all_streams = 1;
             /* NOTE: If the format has no header, then we need to read some
@@ -3750,7 +3768,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
                 flush_codecs = 0;
                 break;
             }
-        }
+        }}
         /* We did not get all the codec info, but we read too much data. */
         if (read_size >= probesize) {
             ret = count;
@@ -3769,13 +3787,18 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
         /* NOTE: A new stream can be added there if no header in file
          * (AVFMTCTX_NOHEADER). */
+        av_log(ic, AV_LOG_DEBUG, "read_frame_internal...\n");
         ret = read_frame_internal(ic, &pkt1);
         if (ret == AVERROR(EAGAIN))
+	{
+            av_log(ic, AV_LOG_DEBUG, "read_frame_internal returns EAGAIN\n");
             continue;
+	}
 
         if (ret < 0) {
             /* EOF or error*/
             eof_reached = 1;
+            av_log(ic, AV_LOG_DEBUG, "read_frame_internal returns EOF\n");
             break;
         }
 
@@ -3786,7 +3809,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
                                      &ic->internal->packet_buffer_end,
                                      pkt, 0);
             if (ret < 0)
+	    {
+            	av_log(ic, AV_LOG_DEBUG, "ff_packet_list_put returns error\n");
                 goto find_stream_info_err;
+	    }
         }
 
         st = ic->streams[pkt->stream_index];
@@ -3797,7 +3823,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
         if (!st->internal->avctx_inited) {
             ret = avcodec_parameters_to_context(avctx, st->codecpar);
             if (ret < 0)
+	    {
+
+            av_log(ic, AV_LOG_DEBUG, "avcodec_parameters_to_context error\n");
                 goto find_stream_info_err;
+	    }
             st->internal->avctx_inited = 1;
         }
 
@@ -3885,7 +3915,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
         if (!st->internal->avctx->extradata) {
             ret = extract_extradata(st, pkt);
             if (ret < 0)
+	    {
+            av_log(ic, AV_LOG_DEBUG, "extract_extradata error\n");
                 goto find_stream_info_err;
+	    }
         }
 
         /* If still no information, we try to open the codec and to
@@ -3897,6 +3930,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
          * least one frame of codec data, this makes sure the codec initializes
          * the channel configuration and does not only trust the values from
          * the container. */
+        av_log(ic, AV_LOG_DEBUG, "try_decode_frame\n");
         try_decode_frame(ic, st, pkt,
                          (options && i < orig_nb_streams) ? &options[i] : NULL);
 
@@ -4071,7 +4105,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
                 st->codecpar->format = st->internal->avctx->sample_fmt;
             ret = avcodec_parameters_to_context(st->internal->avctx, st->codecpar);
             if (ret < 0)
+	    {
+            av_log(ic, AV_LOG_DEBUG, "params to context error\n");
                 goto find_stream_info_err;
+	    }
         }
         if (!has_codec_parameters(st, &errmsg)) {
             char buf[256];
@@ -4096,7 +4133,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
             int orig_h = st->codecpar->height;
             ret = avcodec_parameters_from_context(st->codecpar, st->internal->avctx);
             if (ret < 0)
+	    {
+
+            av_log(ic, AV_LOG_DEBUG, "params to context n error\n");
                 goto find_stream_info_err;
+	    }
 #if FF_API_LOWRES
             // The decoder might reduce the video size by the lowres factor.
             if (st->internal->avctx->lowres && orig_w) {
