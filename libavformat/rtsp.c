@@ -1584,8 +1584,8 @@ int ff_rtsp_make_setup_request(AVFormatContext *s, const char *host, int port,
         /* Fail if the server responded with another lower transport mode
          * than what we requested. */
         if (reply->transports[0].lower_transport != lower_transport) {
-            av_log(s, AV_LOG_ERROR, "Nonmatching transport in server reply\n");
             err = AVERROR_INVALIDDATA;
+            av_log(s, AV_LOG_ERROR, "Nonmatching transport in server reply: %d\n", err);
             goto fail;
         }
 
@@ -1911,6 +1911,9 @@ redirect:
         goto fail;
 
     do {
+        av_log(s, AV_LOG_WARNING, "lower_transport_mask: %d\n", lower_transport_mask);
+        int choose = lower_transport_mask & ~(lower_transport_mask - 1);
+        av_log(s, AV_LOG_WARNING, "lookup index: %d\n", choose);
         int lower_transport = ff_log2_tab[lower_transport_mask &
                                   ~(lower_transport_mask - 1)];
 
@@ -1922,12 +1925,17 @@ redirect:
                                  rt->server_type == RTSP_SERVER_REAL ?
                                      real_challenge : NULL);
         if (err < 0)
+        {
+            av_log(s, AV_LOG_WARNING, "GOTO FAIL\n");
             goto fail;
+        }
         lower_transport_mask &= ~(1 << lower_transport);
         if (lower_transport_mask == 0 && err == 1) {
+            av_log(s, AV_LOG_WARNING, "err=1 and lower_transport_mask is 0 -> fail\n");
             err = AVERROR(EPROTONOSUPPORT);
             goto fail;
         }
+        av_log(s, AV_LOG_WARNING, "cycle\n");
     } while (err);
 
     rt->lower_transport_mask = lower_transport_mask;
