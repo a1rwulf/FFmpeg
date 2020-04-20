@@ -1924,12 +1924,10 @@ redirect:
         err = ff_rtsp_make_setup_request(s, host, port, lower_transport,
                                  rt->server_type == RTSP_SERVER_REAL ?
                                      real_challenge : NULL);
-        if (err < 0)
-        {
-            av_log(s, AV_LOG_WARNING, "GOTO FAIL\n");
-            goto fail;
-        }
+
         lower_transport_mask &= ~(1 << lower_transport);
+        av_log(s, AV_LOG_WARNING, "lower_transport_mask after setup: %d\n", lower_transport_mask);
+
         if (lower_transport_mask == 0 && err == 1) {
             av_log(s, AV_LOG_WARNING, "err=1 and lower_transport_mask is 0 -> fail\n");
             err = AVERROR(EPROTONOSUPPORT);
