@@ -1650,6 +1650,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
             st->codecpar->channels = st->internal->avctx->channels;
             st->codecpar->channel_layout = st->internal->avctx->channel_layout;
             st->codecpar->codec_id = st->internal->avctx->codec_id;
+            st->codecpar->bits_per_raw_sample = st->internal->avctx->bits_per_raw_sample;
         } else {
             /* free packet */
             av_packet_unref(pkt);
