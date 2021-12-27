@@ -157,6 +157,7 @@ static int av1_parser_parse(AVCodecParserContext *ctx,
 
     avctx->profile = seq->seq_profile;
     avctx->level   = seq->seq_level_idx[0];
+    avctx->bits_per_raw_sample = av1->bit_depth;
 
     avctx->colorspace = (enum AVColorSpace) color->matrix_coefficients;
     avctx->color_primaries = (enum AVColorPrimaries) color->color_primaries;
