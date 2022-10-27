@@ -2972,6 +2972,8 @@ static int handle_packets(MpegTSContext *ts, int64_t nb_packets)
     const uint8_t *data;
     int64_t packet_num;
     int ret = 0;
+    time_t start = 0;
+    time_t now = 0;
 
     if (avio_tell(s->pb) != ts->last_pos) {
         int i;
@@ -2996,8 +2998,15 @@ static int handle_packets(MpegTSContext *ts, int64_t nb_packets)
     ts->stop_parse = 0;
     packet_num = 0;
     memset(packet + TS_PACKET_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+    time(&start);
     for (;;) {
         packet_num++;
+        time(&now);
+        if (now - start > s->max_analyze_duration/1000000) {
+            av_log(ts->stream, AV_LOG_TRACE, "No packet after %"PRId64"s\n", s->max_analyze_duration/1000000);
+            break;
+        }
+
         if (nb_packets != 0 && packet_num >= nb_packets ||
             ts->stop_parse > 1) {
             ret = AVERROR(EAGAIN);
