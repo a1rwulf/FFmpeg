@@ -76,7 +76,7 @@
 #endif
 
 #define UDP_TX_BUF_SIZE 32768
-#define UDP_RX_BUF_SIZE 524288
+#define UDP_RX_BUF_SIZE 2097152
 #define UDP_MAX_PKT_SIZE 65536
 #define UDP_HEADER_SIZE 8
 
